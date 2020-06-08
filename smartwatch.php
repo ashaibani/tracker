@@ -83,9 +83,29 @@ class Smartwatch
         // $commandData[3] == content
         $response = "[]";
 
+
+        // Link Command
         if (strpos($commandData[3], "LK") == 0) {
-            // TO-DO: implement content length check and fix
-            $response = "[$commandData[0]*$commandData[1]*$commandData[2]*LK]";
+            // TO-DO: implement content length check
+            $response = "[$commandData[0]*$commandData[1]*0002*LK]";
+        }
+
+        // Position data report 
+        if (strpos($commandData[3], "UD") == 0) {
+            $positionData = explode(", ", $commandData[3]);
+            $response = "";
+        }
+
+        // Blind spot Data Supplements   
+        if (strpos($commandData[3], "UD2") == 0) {
+            $positionData = explode(", ", $commandData[3]);
+            $response = "No";
+        }
+
+        // Alarm data report 
+        if (strpos($commandData[3], "AL") == 0) {
+            $positionData = explode(", ", $commandData[3]);
+            $response = "[$commandData[0]*$commandData[1]*0002*AL]";
         }
 
         echo "Vendor: $commandData[0], Device ID: $commandData[1], Expected Data Length: $contentLength & Command: $commandData[3]\n";

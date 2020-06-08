@@ -8,13 +8,15 @@ class Server
     private $socket;
     private $clients;
     private $delay;
+    private $maxClients;
+    private $clientIndex = 0;
 
     // Class Constructor
     // addr = address to listen on
     // port = port to bind to
     // debug = wether or not to print debug info
     // delay = delay to which you wait inbetween clients
-    function __construct($addr, $port, $debug = false, $delay = 100)
+    function __construct($addr, $port, $debug = false, $maxClients = 64, $delay = 100)
     {
         $this->addr = $addr;
         $this->port = $port;
@@ -22,6 +24,8 @@ class Server
 
         // Convert to milliseconds
         $this->delay = $delay * 100;
+
+        $this->maxClients = $maxClients;
 
         // Initialise socket
         $this->createSocket();
@@ -36,7 +40,7 @@ class Server
     // Creates socket and checks if it can bind to port.
     private function createSocket()
     {
-        $this->socket = stream_socket_server("tcp://" . $this->addr . ":" . $this->port, $errno, $errstr);
+        $this->socket = stream_socket_server("tcp://$this->addr:$this->port", $errno, $errstr);
         if (!$this->socket) {
             echo "$errstr ($errno)\n";
             die('[Smartwatch Tracker] Could not create socket, is port in use?');
@@ -53,21 +57,27 @@ class Server
         include "smartwatch.php";
         while (true) {
             while ($client = stream_socket_accept($this->socket, -1, $peername)) {
-                $smartWatch = new Smartwatch($client, $peername, $this->debug);
+                $smartWatch = new Smartwatch($client, 1, $peername, $this->debug);
 
                 // Add to array in case of future use
-                $this->clients[] = $smartWatch;
+                $this->clients[$this->clientIndex] = $smartWatch;
+                $this->clientIndex++;
 
                 echo "[Smartwatch Tracker] Connection received from: $peername\n";
+
+                // Read info from socket
                 $data = $smartWatch->read($maxLength);
 
-                // TO-DO: do something with data
+                // If command is valid, extract and process the output.
+                if ($data !== "INVALID") {
+                    $data = $smartWatch->extractCommand($data);
+                }
 
-                // Right now this just sends the data back to smart watch.
-                // TO-DO: add command parsing from info
                 $smartWatch->write($data);
 
-                fclose($smartWatch->socket);
+                $smartWatch->destroy();
+                unset($this->clients[$this->clientIndex]);
+
                 usleep($this->delay);
             }
         }

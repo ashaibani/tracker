@@ -1,5 +1,15 @@
 <?php
 include "server.php";
+$addr = '0.0.0.0';
+$port = 1123;
 
-$server = new Server('0.0.0.0', 1123, true);
+if (isset($argv[1])) {
+    $addr = $argv[1];
+}
+
+if (isset($argv[2])) {
+    $port = intval($argv[2]);
+}
+
+$server = new Server($addr, $port, true);
 $server->listen();

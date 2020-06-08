@@ -34,20 +34,28 @@ class Server
     // Close socket on Object destruction
     function __destruct()
     {
-        fclose($this->socket);
+        socket_close($this->socket);
     }
 
     // Creates socket and checks if it can bind to port.
     private function createSocket()
     {
-        $this->socket = stream_socket_server("tcp://$this->addr:$this->port", $errno, $errstr);
-        if (!$this->socket) {
-            echo "$errstr ($errno)\n";
-            die('[Smartwatch Tracker] Could not create socket, is port in use?');
+        if (!$this->socket = socket_create(AF_INET, SOCK_STREAM, 0)) {
+            echo "failed to create socket: " . socket_strerror($this->socket) . "\n";
+            exit();
         }
-        if ($this->debug) {
-            echo "[Smartwatch Tracker - DEBUG] Running on: $this->addr:$this->port\n";
+
+        if (!$ret = socket_bind($this->socket, $this->addr, $this->port)) {
+            echo "failed to bind socket: " . socket_strerror($ret) . "\n";
+            exit();
         }
+
+        if (!$ret = socket_listen($this->socket, 0)) {
+            echo "failed to listen to socket: " . socket_strerror($ret) . "\n";
+            exit();
+        }
+
+        socket_set_nonblock($this->socket);
     }
 
     // Begins listening to the socket
@@ -56,14 +64,18 @@ class Server
     {
         include "smartwatch.php";
         while (true) {
-            while ($client = stream_socket_accept($this->socket, -1, $peername)) {
-                $smartWatch = new Smartwatch($client, 1, $peername, $this->debug);
+            $client = @socket_accept($this->socket);
+            if ($client === false) {
+                usleep($this->delay);
+            } elseif ($client > 0) {
+                socket_getpeername($client, $address);
+                $smartWatch = new Smartwatch($client, 1, $address, $this->debug);
 
                 // Add to array in case of future use
                 $this->clients[$this->clientIndex] = $smartWatch;
                 $this->clientIndex++;
 
-                echo "[Smartwatch Tracker] Connection received from: $peername\n";
+                echo "[Smartwatch Tracker] Connection received from: $address\n";
 
                 // Read info from socket
                 $data = $smartWatch->read($maxLength);

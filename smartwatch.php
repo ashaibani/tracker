@@ -22,7 +22,7 @@ class Smartwatch
         if ($newLine) {
             $message = "$message\n";
         }
-        fwrite($this->socket, $message);
+        socket_write($this->socket, $message, strlen($message));
     }
 
     // Reads and parses data from socket
@@ -30,7 +30,7 @@ class Smartwatch
     // returns data
     function read($maxLength)
     {
-        $packet = stream_socket_recvfrom($this->socket, $maxLength);
+        socket_recv($this->socket, $packet, $maxLength, 0);
         $data = '';
         if (false === empty($packet)) {
             // Remove new line characters
@@ -136,7 +136,7 @@ class Smartwatch
 
     function destroy()
     {
-        fclose($this->socket);
+        socket_close($this->socket);
     }
 }
 

@@ -30,7 +30,7 @@ public class Client {
 	}
 
 	public static void main(String[] args) throws Exception {
-		Client client = new Client(InetAddress.getByName("127.0.0.1"), 1123);
+		Client client = new Client(InetAddress.getByName("95.217.215.19"), 1123);
 
 		System.out.println("\r\nConnected to Server: " + client.socket.getInetAddress());
 		client.start();

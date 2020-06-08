@@ -64,7 +64,8 @@ class Server
                 // TO-DO: do something with data
 
                 // Right now this just sends the data back to smart watch.
-                $smartWatch->write(json_encode($data));
+                // TO-DO: add command parsing from info
+                $smartWatch->write($data);
 
                 fclose($smartWatch->socket);
                 usleep($this->delay);

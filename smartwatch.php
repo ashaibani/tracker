@@ -37,7 +37,8 @@ class Smartwatch
             }
             $data = $this->parseResponse($packet);
         }
-        return $data;
+        $commandData = $this->extractCommand($data);
+        return $commandData;
     }
 
     // Parses data from recieved packet
@@ -56,13 +57,39 @@ class Smartwatch
 
         $data = explode("*", $packet);
 
-        // $data[0] == VENDOR
-        // $data[1] == device id
-        // $data[2] == content length
-        // $data[3] == content
-        // TO-DO - convert content length to ascii values and parse length from content.
-        echo "Vendor: $data[0], Device ID: $data[1], Expected Data: $data[2] & $data[3]\n";
-
         return $data;
+    }
+
+    // Extracts Command from provided Data
+    // Data[] = data to parse info from
+    function extractCommand($data)
+    {
+        $commandData = $data;
+
+        // We only want the value of the first 4 bytes in ascii
+        $contentLength = 0;
+        for ($pos = 0; $pos < 4; $pos++) {
+            $byte = $commandData[2][$pos];
+            if (is_numeric($contentLength)) {
+                $contentLength += intval($byte);
+            } else {
+                $contentLength += ord($byte);
+            }
+        }
+
+        // $commandData[0] == VENDOR
+        // $commandData[1] == device id
+        // $commandData[2] == content length
+        // $commandData[3] == content
+        $response = "[]";
+
+        if (strpos($commandData[3], "LK") == 0) {
+            // TO-DO: implement content length check and fix
+            $response = "[$commandData[0]*$commandData[1]*$commandData[2]*LK]";
+        }
+
+        echo "Vendor: $commandData[0], Device ID: $commandData[1], Expected Data Length: $contentLength & Command: $commandData[3]\n";
+
+        return $response;
     }
 }

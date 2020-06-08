@@ -2,6 +2,8 @@
 Default address: 0.0.0.0 (will all access from all networks)
 Default port: 1123
 
+Install dependencies: composer install
+Run with: php server.php
 Run with: php main.php <optional address> <optional port>
 
 Run example php client: php example-client.php <optional payload>

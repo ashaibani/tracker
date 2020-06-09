@@ -12,7 +12,7 @@ if (isset($argv[1])) {
 if (!$fp) {
     echo "$errstr ($errno)<br />\n";
 } else {
-    fwrite($fp, $positionPayload);
+    fwrite($fp, $payload);
     while (!feof($fp)) {
         echo fgets($fp, 128);
     }

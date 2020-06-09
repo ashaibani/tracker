@@ -1,91 +1,85 @@
 <?php
+// Author: Mohamed Ashaibani <mohamed@ashaibani.com>
+// Simple TCP Server Class.
+class Server
+{
+    private $addr;
+    private $port;
+    private $socket;
+    private $clients;
+    private $delay;
+    private $maxClients;
+    private $clientIndex = 0;
 
-use Workerman\Worker;
+    // Class Constructor
+    // addr = address to listen on
+    // port = port to bind to
+    // debug = wether or not to print debug info
+    // delay = delay to which you wait inbetween clients
+    function __construct($addr, $port, $debug = false, $maxClients = 64, $delay = 100)
+    {
+        $this->addr = $addr;
+        $this->port = $port;
+        $this->debug = $debug;
 
-require_once __DIR__ . '/vendor/autoload.php';
-include 'functions.php';
+        // Convert to milliseconds
+        $this->delay = $delay * 100;
 
-// Creae A Worker and listen 1123 port，not specified protocol
-$tcp_worker = new Worker("tcp://0.0.0.0:1123");
+        $this->maxClients = $maxClients;
 
-// 4 processes
-$tcp_worker->count = 4;
-
-// Emitted when new connection come
-$tcp_worker->onConnect = function ($connection) {
-    echo "[Smartwatch tracker] New connection\n";
-};
-
-// Emitted when data is received
-$tcp_worker->onMessage = function ($connection, $data) {
-    // Send hello $data
-    echo $data;
-    $commandData = explode("*", substr($data, 1, -1));
-
-    if (!(substr($data, 0, 1) === '[' && substr($data, -1) == ']')) {
-        $connection->send('INVALID');
-        return;
+        // Initialise socket
+        $this->createSocket();
     }
 
-    if (count($commandData) < 4) {
-        $connection->send('INVALID');
-        return;
+    // Close socket on Object destruction
+    function __destruct()
+    {
+        fclose($this->socket);
     }
 
-    $contentLength = 0;
-    for ($pos = 0; $pos < 4; $pos++) {
-        $byte = $commandData[2][$pos];
-        // If its already a number, take it for face value
-        if (is_numeric($contentLength)) {
-            $contentLength += intval($byte);
-        } else {
-            // If not, get ascii value
-            $contentLength += ord($byte);
+    // Creates socket and checks if it can bind to port.
+    private function createSocket()
+    {
+        $this->socket = stream_socket_server("tcp://$this->addr:$this->port", $errno, $errstr);
+        if (!$this->socket) {
+            echo "$errstr ($errno)\n";
+            die('[Smartwatch Tracker] Could not create socket, is port in use?');
+        }
+        if ($this->debug) {
+            echo "[Smartwatch Tracker - DEBUG] Running on: $this->addr:$this->port\n";
         }
     }
 
-    // Link Command
-    if (substr($commandData[3], 0, 2) === "LK") {
-        $deviceData = "";
-        if ($contentLength > 2) {
-            $deviceData = explode(",", $commandData[3]);
-            $step = $deviceData[1];
-            $tumblingNumber = $deviceData[2];
-            $batteryStatus = $deviceData[3];
+    // Begins listening to the socket
+    // maxLength = Maximum length of message to read from client
+    function listen($maxLength = 2000)
+    {
+        include "smartwatch.php";
+        while (true) {
+            while ($client = stream_socket_accept($this->socket, -1, $peername)) {
+                $smartWatch = new Smartwatch($client, 1, $peername, $this->debug);
+
+                // Add to array in case of future use
+                $this->clients[$this->clientIndex] = $smartWatch;
+                $this->clientIndex++;
+
+                echo "[Smartwatch Tracker] Connection received from: $peername\n";
+
+                // Read info from socket
+                $data = $smartWatch->read($maxLength);
+
+                // If command is valid, extract and process the output.
+                if ($data !== "INVALID") {
+                    $data = $smartWatch->extractCommand($data);
+                }
+
+                $smartWatch->write($data);
+
+                $smartWatch->destroy();
+                unset($this->clients[$this->clientIndex]);
+
+                usleep($this->delay);
+            }
         }
-        $connection->send('[' . $commandData[0] . '*' . $commandData[1] . '*0002*LK]', true);
-        return;
     }
-
-    // Blind spot Data Supplements   
-    if (substr($commandData[3], 0, 3) === "UD2") {
-        $positionData = new PositionData(explode(",", $commandData[3]));
-        $response = "No";
-        $connection->send('No', true);
-        return;
-    }
-
-    // Position data report 
-    if (substr($commandData[3], 0, 2) === "UD") {
-        $connection->send('', true);
-        $positionData = new PositionData(explode(",", $commandData[3]));
-        return;
-    }
-
-    // Alarm data report 
-    if (substr($commandData[3], 0, 2) === "AL") {
-        $positionData = new PositionData(explode(",", $commandData[3]));
-        $connection->send('[' . $commandData[0] . '*' . $commandData[1] . '*0002*AL]', true);
-        return;
-    }
-
-    $connection->send($data);
-};
-
-// Emitted when connection closed
-$tcp_worker->onClose = function ($connection) {
-    echo "[Smartwatch tracker] Connection closed\n";
-};
-
-// Run worker
-Worker::runAll();
+}
